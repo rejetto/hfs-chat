@@ -67,6 +67,8 @@ exports.init = async api => {
         list: `${API_BASE}list`,
         banned: `${API_BASE}banned`
     }
+    const NOTIFICATIONS_URL = `${api.Const.API_URI}get_notifications`
+    const CHANNEL = 'chat'
 
     /**
      * @param {string} username 
@@ -75,13 +77,12 @@ exports.init = async api => {
      */
     function isAllowed(username, action = 'read') {
         const key = action === 'read' ? 'anonRead' : 'anonWrite'
-        if (!username && !api.getConfig(key)) return false
-        return !!username && isBanned(username)
+        return username ? !isBanned(username) : api.getConfig(key)
     }
     async function listMsg({ ctx, method }) {
         if (method !== 'get') return
         const username = getCurrentUsername(ctx)
-        if (isAllowed(username, 'read')) {
+        if (!isAllowed(username, 'read')) {
             ctx.status = 403
             return ctx.stop()
         }
@@ -100,7 +101,7 @@ exports.init = async api => {
             return ctx.stop()
         }
         const u = getCurrentUsername(ctx) || undefined
-        if (isAllowed(u, 'write')) {
+        if (!isAllowed(u, 'write')) {
             ctx.status = 403
             return ctx.stop()
         }
@@ -117,7 +118,7 @@ exports.init = async api => {
         }
         throttleDb.put(who, Date.now())
         chatDb.put(ts, { m, u, n })
-        api.notifyClient('chat', 'newMessage', { ts, u, m, n })
+        api.notifyClient(CHANNEL, 'newMessage', { ts, u, m, n })
         ctx.status = 201
         const max = api.getConfig('retainMessages')
         while (max && chatDb.size() > max)
@@ -129,13 +130,17 @@ exports.init = async api => {
             return ctx.stop()
         }
         const u = getCurrentUsername(ctx)
-        ctx.body = isAllowed(u, 'read') && isAllowed(u, 'write')
+        ctx.body = !isAllowed(u, 'read')
         ctx.status = 200
         return ctx.stop()
     }
     
     return {
         async middleware(ctx) {
+            if (ctx.path.startsWith(NOTIFICATIONS_URL) && ctx.query.channel === CHANNEL && !isAllowed(getCurrentUsername(ctx), 'read')) {
+                ctx.status = 403
+                return ctx.stop()
+            }
             if (!ctx.path.startsWith(API_BASE)) return
             const ts = new Date().toISOString()
             const p = ctx.path.toLowerCase()
