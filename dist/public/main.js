@@ -29,6 +29,7 @@
         msg && HFS.toast(msg, 'error')
     }
 
+    const CONTAINER_CLASS = 'chat-container'
     function ChatContainer() {
         const {username} = HFS.useSnapState()
         const [m, sm] = useState('');
@@ -70,8 +71,8 @@
             if (goBottom)
                 el?.scrollTo(0, el.scrollHeight)
         }, [goBottom, msgs, collapsed])
-
-        return h('div', { className: 'chat-container' },
+        useStickyHelper()
+        return h('div', { className: CONTAINER_CLASS },
             h('div', { className: 'chat-header' },
                 h('span', {},
                     `Chat`,
@@ -133,6 +134,50 @@
             })
         })
         return isBanned || (!anonCanRead && !anonCanWrite)? null : h(ChatContainer);
+    }
+
+    // don't overlap with pagination-bar when we are in sticky mode
+    function useStickyHelper() {
+        useEffect(() => {
+            let frame = 0
+            let resizeObserver
+            const mutationObserver = new MutationObserver(update)
+            const stopResize = HFS.domOn('resize', update, { target: window })
+            mutationObserver.observe(document.body, { childList: true, subtree: true })
+            update()
+            return () => {
+                cancelAnimationFrame(frame)
+                stopResize?.()
+                mutationObserver.disconnect()
+                resizeObserver?.disconnect()
+                const paging = document.getElementById('paging')
+                if (paging) paging.style.bottom = ''
+            }
+
+            function update() {
+                frame ||= requestAnimationFrame(() => {
+                    frame = 0
+                    const chat = document.querySelector('.'+CONTAINER_CLASS)
+                    const paging = document.getElementById('paging')
+                    if (!paging) return
+                    if (!chat) {
+                        paging.style.bottom = ''
+                        return
+                    }
+                    const { position } = getComputedStyle(chat)
+                    // use the applied css position as source of truth, so js doesn't duplicate media-query rules
+                    const shouldOffsetPaging = position === 'sticky'
+                    paging.style.bottom = shouldOffsetPaging ? Math.ceil(chat.getBoundingClientRect().height) + 'px' : ''
+                    resizeObserver?.disconnect()
+                    if (window.ResizeObserver) {
+                        resizeObserver = new ResizeObserver(update)
+                        resizeObserver.observe(chat)
+                        resizeObserver.observe(paging)
+                    }
+                })
+            }
+
+        }, [])
     }
 }
 

@@ -1,4 +1,4 @@
-exports.version = 1.3
+exports.version = 1.31
 exports.description = "Simple chat integrated in HFS"
 exports.apiRequired = 8.87
 exports.repo = "damienzonly/hfs-chat"
@@ -56,6 +56,9 @@ exports.config = {
         frontend: true
     }
 }
+exports.changelog = [
+    { "version": 1.21, "message": "fix: don't overlap with pagination-bar on phone" }
+]
 
 exports.init = async api => {
     const chatDb = await api.openDb('chat', { rewriteLater: true })
