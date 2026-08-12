@@ -1,6 +1,6 @@
-exports.version = 1.31
+exports.version = 1.32
 exports.description = "Simple chat integrated in HFS"
-exports.apiRequired = 8.87
+exports.apiRequired = 8.89 // ctx.stop()
 exports.repo = "damienzonly/hfs-chat"
 exports.frontend_js = ['main.js']
 exports.frontend_css = ['style.css']
@@ -57,6 +57,7 @@ exports.config = {
     }
 }
 exports.changelog = [
+    { "version": 1.32, "message": "Fixed chat behind path-based reverse proxies and rejected invalid guest nicknames" },
     { "version": 1.21, "message": "fix: don't overlap with pagination-bar on phone" }
 ]
 
@@ -72,6 +73,7 @@ exports.init = async api => {
     }
     const NOTIFICATIONS_URL = `${api.Const.API_URI}get_notifications`
     const CHANNEL = 'chat'
+    const MAX_NICK_LEN = 50
 
     /**
      * @param {string} username 
@@ -109,7 +111,9 @@ exports.init = async api => {
             return ctx.stop()
         }
         const { m, n } = ctx.state.params
-        if (!m || typeof m !== 'string' || m?.length > api.getConfig('maxMsgLen')) {
+        const nick = u ? undefined : n
+        if (!m || typeof m !== 'string' || m.length > api.getConfig('maxMsgLen')
+        || nick !== undefined && (typeof nick !== 'string' || nick.length > MAX_NICK_LEN)) {
             ctx.status = 400
             return ctx.stop()
         }
@@ -120,8 +124,8 @@ exports.init = async api => {
             return ctx.stop()
         }
         throttleDb.put(who, Date.now())
-        chatDb.put(ts, { m, u, n })
-        api.notifyClient(CHANNEL, 'newMessage', { ts, u, m, n })
+        chatDb.put(ts, { m, u, n: nick })
+        api.notifyClient(CHANNEL, 'newMessage', { ts, u, m, n: nick })
         ctx.status = 201
         const max = api.getConfig('retainMessages')
         while (max && chatDb.size() > max)

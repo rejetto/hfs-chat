@@ -3,6 +3,7 @@
     const {username} = HFS.state // NB: this can change at run-time
     const { h } = HFS;
     const { useState, useEffect, useRef, Fragment } = HFS.React;
+    const API_BASE = HFS.prefixUrl + '/~/api/chat/'
 
     HFS.onEvent('footer', () => h(ChatApp));
 
@@ -49,7 +50,7 @@
                 if (getCollapsed() || !getGoBottom())
                     setUnread(x => x + 1)
             });
-            fetch('/~/api/chat/list').then(v => v.json()).then(v =>
+            fetch(API_BASE + 'list').then(v => v.json()).then(v =>
                 setMsgs(HFS._.map(v, (o, ts) => Object.assign(o, { ts }))));
             return () => {
                 eventSource.then(v => v.close());
@@ -99,7 +100,7 @@
                     if (!anonCanWrite) return
                     const trim = m.trim()
                     if (!trim) return
-                    const res = await fetch('/~/api/chat/add', {
+                    const res = await fetch(API_BASE + 'add', {
                         'Content-Type': 'application/json',
                         method: 'POST',
                         body: JSON.stringify({ n: username ? undefined : n, m: trim })
@@ -125,7 +126,7 @@
     function ChatApp() {
         const [isBanned, setIsBanned] = useState(true)
         useEffect(() => {
-            fetch('/~/api/chat/banned')
+            fetch(API_BASE + 'banned')
             .then(v => v.json())
             .then(v => setIsBanned(v))
             .catch(e => {
